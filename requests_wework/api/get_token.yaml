@@ -1,0 +1,7 @@
+get_token:
+ method: get
+ url: /cgi-bin/gettoken
+ params:
+ #$corpid是占位符
+    corpid: $corpid
+    corpsecret: $corpsecret
