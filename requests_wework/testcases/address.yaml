@@ -2,67 +2,67 @@
 depend: ['requests']
 #方法名
 def_get_token:
-#需要调用的方法
-    run_request:
-      method: get
-      url: /cgi-bin/gettoken
-      params:
-        corpid: wwf2dbb0a93f2eac33
-        corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
+  #需要调用的方法
+  run_request:
+    method: get
+    url: /cgi-bin/gettoken
+    params:
+      corpid: wwf2dbb0a93f2eac33
+      corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
 #方法名
 def_get:
-#要调用依赖中的方法
-    run_request:
-      method: get
-      url: /cgi-bin/user/get
-      params:
-        access_token:
-          $(get_token)
-        userid:
-          $userid
+  #要调用依赖中的方法
+  run_request:
+    method: get
+    url: /cgi-bin/user/get
+    params:
+      access_token:
+        $(get_token)
+      userid:
+        $userid
 #创造联系人
 def_create:
   run_request:
-   json:
-     department:
-     - 1
-     mobile: $mobile
-     name: $name
-     userid: $userid
-   method: post
-   params:
-     access_token: $(get_token)
-   url: /cgi-bin/user/create
+    json:
+      department:
+        - 1
+      mobile: $mobile
+      name: $name
+      userid: $userid
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/user/create
 
 #更新
 def_update_mem:
- run_request:
-  json:
-    department:
-    - 1
-    name: $name
-    userid: $userid
-  method: post
-  params:
-    access_token: $(get_token)
-  url: /cgi-bin/user/update
+  run_request:
+    json:
+      department:
+        - 1
+      name: $name
+      userid: $userid
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/user/update
 
 #删除
 def_delete_mem:
- run_request:
-  url: /cgi-bin/user/delete
-  method: get
-  params:
-    access_token: $(get_token)
-    userid: $userid
+  run_request:
+    url: /cgi-bin/user/delete
+    method: get
+    params:
+      access_token: $(get_token)
+      userid: $userid
 #成员列表
 def_simplelist:
- run_request:
-  url: /cgi-bin/user/simplelist
-  method: get
-  params:
-    access_token: $(get_token)
-    department_id: $department_id
-    fetch_child: 0
+  run_request:
+    url: /cgi-bin/user/simplelist
+    method: get
+    params:
+      access_token: $(get_token)
+      department_id: $department_id
+      fetch_child: 0
 
 

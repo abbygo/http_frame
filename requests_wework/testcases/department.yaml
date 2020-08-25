@@ -2,59 +2,59 @@
 depend: ['requests']
 #方法名
 def_get_token:
-#需要调用的方法
-    run_request:
-      method: get
-      url: /cgi-bin/gettoken
-      params:
-        corpid: wwf2dbb0a93f2eac33
-        corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
+  #需要调用的方法
+  run_request:
+    method: get
+    url: /cgi-bin/gettoken
+    params:
+      corpid: wwf2dbb0a93f2eac33
+      corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
 
 
 #创造部门
 def_create:
   run_request:
-   json:
-     name: $name
-     name_en: $name_en
-     parentid: $parentid
-     order: $order
-   method: post
-   params:
-     access_token: $(get_token)
-   url: /cgi-bin/department/create
+    json:
+      name: $name
+      name_en: $name_en
+      parentid: $parentid
+      order: $order
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/department/create
 
 #更新
 def_update_department:
- run_request:
-  json:
-     name: $name
-     name_en: $name_en
-     parentid: $parentid
-     id: $id
-  method: post
-  params:
-    access_token: $(get_token)
-  url: /cgi-bin/department/update
+  run_request:
+    json:
+      name: $name
+      name_en: $name_en
+      parentid: $parentid
+      id: $id
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/department/update
 
 
 #删除
 def_delete_depatement:
- run_request:
-  url: /cgi-bin/department/delete
-  method: get
-  params:
-    access_token: $(get_token)
-    id: $id
+  run_request:
+    url: /cgi-bin/department/delete
+    method: get
+    params:
+      access_token: $(get_token)
+      id: $id
 
 
 #部门列表
 def_depatementlist:
- run_request:
-  url: /cgi-bin/department/list
-  method: get
-  params:
-    access_token: $(get_token)
-    id: $id
+  run_request:
+    url: /cgi-bin/department/list
+    method: get
+    params:
+      access_token: $(get_token)
+      id: $id
 
 

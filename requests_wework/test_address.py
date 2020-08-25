@@ -3,13 +3,15 @@
 import re
 import pytest
 
+
 from requests_wework.testcases.base_case import BaseCase
 class TestCaseAddress(BaseCase):
 
     @pytest.mark.parametrize('userid, name, mobile',
                              [])
     def test_create(self, userid, name, mobile):
-        r=self.basecase('./address.yaml', { userid, name, mobile},startAssert=False)
+        r=self.basecase('./address.yaml', { userid, name, mobile})
         from jsonpath import jsonpath
         assert 'created' == jsonpath(r, '$.errmsg')[0]
+
 

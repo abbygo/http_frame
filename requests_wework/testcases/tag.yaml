@@ -2,87 +2,87 @@
 depend: ['requests']
 #方法名
 def_get_token:
-#需要调用的方法
-    run_request:
-      method: get
-      url: /cgi-bin/gettoken
-      params:
-        corpid: wwf2dbb0a93f2eac33
-        corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
+  #需要调用的方法
+  run_request:
+    method: get
+    url: /cgi-bin/gettoken
+    params:
+      corpid: wwf2dbb0a93f2eac33
+      corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
 
 #创造标签
 def_create:
   run_request:
-   json:
-     tagname: $tagname
-     tagid: $tagid
-   method: post
-   params:
-     access_token: $(get_token)
-   url: /cgi-bin/tag/create
+    json:
+      tagname: $tagname
+      tagid: $tagid
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/tag/create
 #获取标签
 def_get:
-#要调用依赖中的方法
-    run_request:
-      method: get
-      url: /cgi-bin/tag/get
-      params:
-        access_token:
-          $(get_token)
-        tagid:
-          $tagid
+  #要调用依赖中的方法
+  run_request:
+    method: get
+    url: /cgi-bin/tag/get
+    params:
+      access_token:
+        $(get_token)
+      tagid:
+        $tagid
 #更新标签
 def_update:
- run_request:
-  json:
-    tagid: $tagid
-    tagname: $tagname
-  method: post
-  params:
-    access_token: $(get_token)
-  url: /cgi-bin/tag/update
+  run_request:
+    json:
+      tagid: $tagid
+      tagname: $tagname
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/tag/update
 
 #删除标签
 def_delete:
- run_request:
-  url: /cgi-bin/tag/delete
-  method: get
-  params:
-    access_token: $(get_token)
-    tagid: $tagid
+  run_request:
+    url: /cgi-bin/tag/delete
+    method: get
+    params:
+      access_token: $(get_token)
+      tagid: $tagid
 #列表
 def_list:
- run_request:
-  url: /cgi-bin/tag/list
-  method: get
-  params:
-    access_token: $(get_token)
+  run_request:
+    url: /cgi-bin/tag/list
+    method: get
+    params:
+      access_token: $(get_token)
 
 
 #增加标签成员
 def_addtagusers:
   run_request:
-   json:
-     userlist: $userlist
-     tagid: $tagid
-     partylist: $partylist
-   method: post
-   params:
-     access_token: $(get_token)
-   url: /cgi-bin/tag/addtagusers
+    json:
+      userlist: $userlist
+      tagid: $tagid
+      partylist: $partylist
+    method: post
+    params:
+      access_token: $(get_token)
+    url: /cgi-bin/tag/addtagusers
 
 
 #删除标签
 def_deltagusers:
- run_request:
-  url: /cgi-bin/tag/deltagusers
-  method: post
-  params:
-    access_token: $(get_token)
-  json:
-   tagid: $tagid
-   userlist: $userlist
-   partylist: $partylist
+  run_request:
+    url: /cgi-bin/tag/deltagusers
+    method: post
+    params:
+      access_token: $(get_token)
+    json:
+      tagid: $tagid
+      userlist: $userlist
+      partylist: $partylist
 
 
 

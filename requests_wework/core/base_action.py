@@ -6,6 +6,7 @@ import types
 from string import Template
 
 import yaml
+from jsonpath import jsonpath
 
 from requests_wework.core.content import Content
 
@@ -59,8 +60,7 @@ class BaseAction:
                                                 content_format['json']['mobile'] = str(content_format['json']['mobile'])
                                         # getattr(import_mod, in_fun_name)(**content_format)等价于 import_mod.in_fun_name(**content_format)
                                         # 这句代码实际就是requests.request(**content_format).json() ,是发送请求的地方
-                                        return self.send(content_format,import_mod,in_fun_name)
-
+                                        return self.send(content_format, import_mod, in_fun_name)
 
                 cls_dict = {
                     '__init__': __init__,
@@ -71,22 +71,25 @@ class BaseAction:
                 # 把方法名作为key,类地址作为value存入字典--》eg:<class 'dict'>: {'get_token': <types.tmp_class object at 0x0552E388>}
                 self.local_variable[fun_name] = tmp_class(command_content, fun_name)
 
-    def send(self,content_format:dict,import_mod,in_fun_name):
+    def send(self, content_format: dict, import_mod, in_fun_name):
         # todo
         env = yaml.safe_load(
             open(r'C:\Users\lnz\PycharmProjects\HGS\requests_wework\api\env.yaml'))
         req_dict = content_format.copy()
         if content_format.__contains__('encoding'):
             req_dict.pop('encoding')
+        if content_format.__contains__('validate'):
+            req_dict.pop('validate')
         req_dict['url'] = str(env['env'][env['default']]) + str(
             req_dict['url'])
         # 发送请求的地方，verify=False表示不验证证书
-        res = getattr(import_mod, in_fun_name)(verify=False,**req_dict)
+        res = getattr(import_mod, in_fun_name)(verify=False, **req_dict)
         # 对返回结果进行处理
         # 如果字典的key包含encoding
         if content_format.__contains__('encoding'):
             if content_format['encoding'] == 'base64':
-                return json.loads(base64.b64decode(res.content))
+                response_json = json.loads(base64.b64decode(res.content))
+                return self.validate(content_format, response_json)
             elif content_format['encoding'] == 'private':
                 # todo
                 return getattr(import_mod, in_fun_name)('url', data=res.content)
@@ -94,7 +97,39 @@ class BaseAction:
                 # todo
                 pass
         else:
-            return res.json()
+
+            return self.validate(content_format, res)
+
+    def validate(self, request_json: dict, response):
+        '''
+        验证断言
+        :return:
+        '''
+        validate_list = request_json.get('validate', [])
+        for item in validate_list:
+            # eq这种方式已完善
+            if item.get('eq', []):
+                validate_key: str = item['eq'][0]
+                if validate_key.find('body') != -1:
+                    validate_key = validate_key.replace('body.', '')
+                    act_value = jsonpath(response.json(), f'$.{validate_key}')[0]
+                elif validate_key.find('status_code') != -1:
+                    act_value = getattr(response, validate_key)
+                elif validate_key.find('headers') != -1:
+                    validate_key = validate_key.replace('headers.', '')
+                    act_value = response.headers.get(validate_key)
+                else:
+                    # todo
+                    act_value = []
+                    pass
+                except_value = item['eq'][1]
+                assert except_value == act_value
+            else:
+                # todo
+                pass
+
+        return response.json()
+
     def parse_value(self, content, testData=None):
         '''
         解析函数为可执行的函数？？
@@ -117,7 +152,7 @@ class BaseAction:
                 raw = raw.replace(f"$({function})", repr(parse_res))
         return yaml.safe_load(raw)
 
-    def run_fun(self, fun_name, testData:dict=None):
+    def run_fun(self, fun_name, testData: dict = None):
         '''
         运行方法
         :param fun_name: 函数名
