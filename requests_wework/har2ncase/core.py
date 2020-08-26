@@ -1,19 +1,24 @@
 import base64
 import json
+import sys
 import urllib.parse as urlparse
 from json import JSONDecodeError
 from urllib.parse import unquote
+from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).parent.parent))
 import yaml
 from loguru import logger
+
+
 def make_request_method(teststep_dict, request_json):
     '''
     提取请求方法
     '''
     method = request_json.get("method")
-    # if not method:
-    #     logger.exception("method missed in request.")
-    #     sys.exit(1)
+    if not method:
+        logger.exception("method missed in request.")
+        sys.exit(1)
 
     teststep_dict["method"] = method
 
@@ -63,7 +68,6 @@ def __make_request_url(teststep_dict, request_json):
         teststep_dict["url"] = url
 
 
-
 def convert_list_to_dict(origin_list):
     """ convert HAR data list to mapping
     提取参数转化为字典格式
@@ -82,8 +86,10 @@ def convert_list_to_dict(origin_list):
     """
     return {item["name"]: item.get("value") for item in origin_list}
 
+
 def convert_x_www_form_urlencoded_to_dict(post_data):
     """ convert x_www_form_urlencoded data to dict
+       转换数据为字典格式
 
     Args:
         post_data (str): a=1&b=2
@@ -106,39 +112,42 @@ def convert_x_www_form_urlencoded_to_dict(post_data):
     else:
         return post_data
 
-def _make_request_data( teststep_dict, request_json):
-        """ parse HAR entry request data, and make teststep request data
+
+def _make_request_data(teststep_dict, request_json):
+    """ parse HAR entry request data, and make teststep request data
         提取请求体中的数据
 
         """
-        method = request_json.get("method")
-        if method in ["POST", "PUT", "PATCH"]:
-            postData = request_json.get("postData", {})
-            mimeType = postData.get("mimeType")
+    method = request_json.get("method")
+    if method in ["POST", "PUT", "PATCH"]:
+        postData = request_json.get("postData", {})
+        mimeType = postData.get("mimeType")
 
-            # Note that text and params fields are mutually exclusive.
-            if "text" in postData:
-                post_data = postData.get("text")
-            else:
-                params = postData.get("params", [])
-                post_data =convert_list_to_dict(params)
+        # Note that text and params fields are mutually exclusive.
+        if "text" in postData:
+            post_data = postData.get("text")
+        else:
+            params = postData.get("params", [])
+            post_data = convert_list_to_dict(params)
 
-            request_data_key = "data"
-            if not mimeType:
+        request_data_key = "data"
+        if not mimeType:
+            pass
+        elif mimeType.startswith("application/json"):
+            try:
+                post_data = json.loads(post_data)
+                request_data_key = "json"
+            except JSONDecodeError:
                 pass
-            elif mimeType.startswith("application/json"):
-                try:
-                    post_data = json.loads(post_data)
-                    request_data_key = "json"
-                except JSONDecodeError:
-                    pass
-            elif mimeType.startswith("application/x-www-form-urlencoded"):
-                post_data =convert_x_www_form_urlencoded_to_dict(post_data)
-            else:
-                # TODO: make compatible with more mimeType
-                pass
+        elif mimeType.startswith("application/x-www-form-urlencoded"):
+            post_data = convert_x_www_form_urlencoded_to_dict(post_data)
+        else:
+            # TODO: make compatible with more mimeType
+            pass
 
-            teststep_dict[request_data_key] = post_data
+        teststep_dict[request_data_key] = post_data
+
+
 def dump_json(testcase, json_file):
     """ dump HAR entries to json testcase
     """
@@ -152,19 +161,20 @@ def dump_json(testcase, json_file):
         outfile.write(my_json_str)
 
     logger.info("Generate JSON testcase successfully: {}".format(json_file))
+
+
 def dump_yaml(testcase, yaml_file):
     """ dump HAR entries to yaml testcase
     """
     logger.info("dump testcase to YAML format.")
 
     with open(yaml_file, "w", encoding="utf-8") as outfile:
-        yaml.dump(
-            testcase, outfile, allow_unicode=True, default_flow_style=False, indent=4
-        )
+        yaml.safe_dump(testcase, outfile, allow_unicode=True, default_flow_style=False, indent=4, sort_keys=False)
 
     logger.info("Generate YAML testcase successfully: {}".format(yaml_file))
 
-def _make_validate( teststep_dict, response_json):
+
+def _make_validate(teststep_dict, response_json):
     """ parse HAR entry response and make teststep validate.
     生成断言
     Args:
@@ -243,37 +253,47 @@ def _make_validate( teststep_dict, response_json):
                 continue
 
             teststep_dict["validate"].append({"eq": ["body.{}".format(key), value]})
-def gen_testcase(file_type="YAML"):
-    with open(r'C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\tags.har', 'rb') as file:
+
+
+def gen_testcase(harfile,file_type="YAML"):
+    with open(rf"{harfile}", 'rb') as file:
         yaml_content = json.load(file)
         entry_json = yaml_content['log']['entries']
+        # 构造要生成的yaml内容
         content_dict = {"depend": ["requests"]}
         for item in entry_json:
             request_json = item['request']
-            response_json=item['response']
+            response_json = item['response']
             parsed_object = urlparse.urlparse(request_json['url'])
+            # 从url中获取方法名
             if parsed_object.path.find('/') != -1:
                 name = parsed_object.path.split('/')[-1]
             else:
                 name = parsed_object.path
-            content_key = "def_" + name
-            request_dict = {"validate": []}
+            # 方法名
+            fun_name = "def_" + name
+            request_dict = {}
             make_request_method(request_dict, request_json)
             __make_request_url(request_dict, request_json)
             __make_request_cookies(request_dict, request_json)
             pre_header(request_dict, request_json)
             _make_request_data(request_dict, request_json)
-            _make_validate(request_dict,response_json)
-            content_dict[content_key] = {"run_request": request_dict}
-        print(content_dict)
+            # 构造断言列表
+            request_dict['validate']=[]
+            _make_validate(request_dict, response_json)
+            content_dict[fun_name] = {"run_request": request_dict}
+        # 构造要生成的文件名
+        p=Path(rf"{harfile}")
+        filename=p.stem
         if file_type == "JSON":
-            # output_testcase_file = f"{harfile}.json"
-            dump_json(content_dict,r'C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\tags_test.json')
+            output_testcase_file = f"{filename}.json"
+            dump_json(content_dict,
+                      rf'{output_testcase_file}')
         elif file_type == "YAML":
-            # output_testcase_file = f"{harfile}.yml"
+            output_testcase_file = f"{filename}.yaml"
             dump_yaml(content_dict,
-                      r'C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\tags_test.yaml')
+                      rf'{output_testcase_file}')
 
 
 if __name__ == '__main__':
-    gen_testcase()
+    gen_testcase(r'C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\tags.har')
