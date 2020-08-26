@@ -14,7 +14,8 @@ from loguru import logger
 from sentry_sdk import capture_message
 from pathlib import Path
 
-from requests_wework.har2ncase.core import gen_testcase
+from requests_wework.har2ncase.core import HarParser
+from requests_wework.har2ncase.make import call_gen_py_testcase
 
 
 def init_har2ncase_parser(parser):
@@ -72,12 +73,15 @@ def main_har2ncase(args):
             # 检查是文件后缀名是否包含.har
             if sub_file_name.suffix.find('.har') != -1:
                 har_source_file=str(sub_file_name)
-                gen_testcase(har_source_file,output_file_type)
+                output_testcase_file=HarParser(har_source_file).gen_testcase(output_file_type)
+                call_gen_py_testcase(output_testcase_file)
+
             else:
                 logger.error("HAR file not specified.")
                 sys.exit(1)
 
     else:
-        gen_testcase(har_source_file,output_file_type)
+        output_testcase_file=HarParser(har_source_file).gen_testcase(output_file_type)
+        call_gen_py_testcase(output_testcase_file)
 
     return 0
