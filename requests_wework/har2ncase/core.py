@@ -8,8 +8,6 @@ from typing import Text
 
 from pathlib import Path
 from sentry_sdk import capture_exception
-
-# sys.path.insert(0, str(Path(__file__).parent.parent))
 from loguru import logger
 import yaml
 

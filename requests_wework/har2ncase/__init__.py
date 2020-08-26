@@ -9,6 +9,7 @@ Usage:
 
 """
 import sys
+from argparse import ArgumentParser
 
 from loguru import logger
 from sentry_sdk import capture_message
@@ -18,10 +19,13 @@ from requests_wework.har2ncase.core import HarParser
 from requests_wework.har2ncase.make import call_gen_py_testcase
 
 
-def init_har2ncase_parser(parser):
+def init_har2ncase_parser(parser:ArgumentParser):
     """ HAR converter: parse command line options and run commands.
     """
-    parser.add_argument("har_source_file", nargs="?", help="Specify HAR source file")
+
+    group=parser.add_mutually_exclusive_group()
+    group.add_argument("--har_source_file", nargs="?",  dest="har_source_file",help="Specify HAR source file")
+    group.add_argument("--har_source_dir", dest="har_source_dir", nargs="?", help="Specify HAR source directory,The suffix of all files in the HAR source must be. Har")
     parser.add_argument(
         "-2y",
         "--to-yml",
@@ -46,15 +50,12 @@ def init_har2ncase_parser(parser):
         help="Specify exclude keyword, url that includes exclude string will be ignored, "
              "multiple keywords can be joined with '|'",
     )
-    parser.add_argument("--har_source_dir", dest="har_source_dir",nargs="?", help="Specify HAR source directory")
 
 
     return parser
 
 
 def main_har2ncase(args):
-    har_source_file = args.har_source_file
-    har_source_dir=args.har_source_dir
     if args.to_yaml:
         output_file_type = "YAML"
     elif args.to_json:
@@ -66,8 +67,8 @@ def main_har2ncase(args):
     # 以下代码是lnz添加
     # 判断传递了har文件名，就去循环转换文件
     # todo 实现转换未json.yaml 格式
-    if har_source_dir:
-        p = Path(har_source_dir)
+    if args.har_source_dir:
+        p = Path(args.har_source_dir)
         # 循环迭代转换har目录下的文件（lnz添加）
         for sub_file_name in p.iterdir():
             # 检查是文件后缀名是否包含.har
@@ -77,11 +78,11 @@ def main_har2ncase(args):
                 call_gen_py_testcase(output_testcase_file)
 
             else:
-                logger.error("HAR file not specified.")
+                logger.error("HAR file not found,The suffix of all files in the folder must be. Har")
                 sys.exit(1)
 
     else:
-        output_testcase_file=HarParser(har_source_file).gen_testcase(output_file_type)
+        output_testcase_file=HarParser(args.har_source_file).gen_testcase(output_file_type)
         call_gen_py_testcase(output_testcase_file)
 
     return 0

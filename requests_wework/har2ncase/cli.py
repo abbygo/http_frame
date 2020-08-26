@@ -15,7 +15,10 @@ def main():
     parser = argparse.ArgumentParser()
     # 添加解析器参数
     init_har2ncase_parser(parser)
+    if len(sys.argv) == 1:
 
+        parser.print_help()
+        sys.exit(0)
     args = parser.parse_args()
 
     # sys.stdout.write(str(args))
