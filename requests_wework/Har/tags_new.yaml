@@ -1,0 +1,31 @@
+depend:
+- requests
+def_gettoken:
+    run_request:
+        method: GET
+        url: /cgi-bin/gettoken
+        params:
+            corpid: wwf2dbb0a93f2eac33
+            corpsecret: fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc
+        headers:
+            Host: qyapi.weixin.qq.com
+            User-Agent: python-requests/2.24.0
+            Accept-Encoding: gzip, deflate
+            Accept: '*/*'
+            Connection: keep-alive
+        validate:
+        -   eq:
+            - status_code
+            - 200
+        -   eq:
+            - headers.Content-Type
+            - application/json; charset=UTF-8
+        -   eq:
+            - body.errcode
+            - 0
+        -   eq:
+            - body.errmsg
+            - ok
+        -   eq:
+            - body.expires_in
+            - 7200

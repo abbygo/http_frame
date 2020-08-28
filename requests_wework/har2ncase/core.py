@@ -297,7 +297,7 @@ class HarParser(object):
             dump_yaml(content_dict,
                       rf'{output_testcase_file}')
         if output_testcase_file:
-            logger.info(f"generated testcase: {output_testcase_file}")
+            # logger.info(f"generated testcase: {output_testcase_file}")
             return output_testcase_file
         else:
             logger.exception("-2y|-2j prameter missed in request.")

@@ -23,9 +23,9 @@ def init_har2ncase_parser(parser:ArgumentParser):
     """ HAR converter: parse command line options and run commands.
     """
 
-    group=parser.add_mutually_exclusive_group()
-    group.add_argument("--har_source_file", nargs="?",  dest="har_source_file",help="Specify HAR source file")
-    group.add_argument("--har_source_dir", dest="har_source_dir", nargs="?", help="Specify HAR source directory,The suffix of all files in the HAR source must be. Har")
+    group=parser.add_mutually_exclusive_group(required=True)
+    group.add_argument("-F","--har_source_file", nargs="?",  dest="har_source_file",help="Specify HAR source file")
+    group.add_argument("-D","--har_source_dir", dest="har_source_dir", nargs="?", help="Specify HAR source directory,The suffix of all files in the HAR source must be. Har")
     parser.add_argument(
         "-2y",
         "--to-yml",
@@ -34,6 +34,7 @@ def init_har2ncase_parser(parser:ArgumentParser):
         action="store_true",
         help="Convert to YAML format, if not specified, convert to pytest format by default.",
     )
+    
     parser.add_argument(
         "-2j",
         "--to-json",
@@ -78,7 +79,7 @@ def main_har2ncase(args):
                 call_gen_py_testcase(output_testcase_file)
 
             else:
-                logger.error("HAR file not found,The suffix of all files in the folder must be. Har")
+                logger.error("HAR file not found,The suffix of all files in the folder must be. har")
                 sys.exit(1)
 
     else:

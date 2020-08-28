@@ -22,3 +22,10 @@ class Content:
     # 获取数据
     def get_data(self):
         return self._data
+
+class PyContent:
+    def __init__(self, data):
+       self._data=data
+    # 获取数据
+    def get_data(self):
+        return self._data
