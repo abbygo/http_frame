@@ -2,7 +2,7 @@ import os
 
 import yaml
 
-from requests_wework.core.exception import FileNotFound
+from requests_wework.core.exceptions import FileNotFound
 
 
 class Content:

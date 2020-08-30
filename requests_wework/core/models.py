@@ -1,17 +1,29 @@
+import os
 from enum import Enum
-from typing import Text, Dict, Union, List, Any
+from typing import Text, Dict, Union, List, Any, Callable
 
 
 
+from pydantic import HttpUrl, BaseModel, Field
+
+Name = Text
+Url = Text
+BaseUrl = Union[HttpUrl, Text]
+VariablesMapping = Dict[Text, Any]
+FunctionsMapping = Dict[Text, Callable]
 Headers = Dict[Text, Text]
 Cookies = Dict[Text, Text]
 Verify = bool
 Export = List[Text]
-VariablesMapping = Dict[Text, Any]
+
 Hooks = List[Union[Text, Dict[Text, Text]]]
 Validators = List[Dict]
 
-from pydantic import BaseModel, Field
+Env = Dict[Text, Any]
+
+
+
+
 class MethodEnum(Text, Enum):
     GET = "GET"
     POST = "POST"
@@ -21,6 +33,18 @@ class MethodEnum(Text, Enum):
     OPTIONS = "OPTIONS"
     PATCH = "PATCH"
 
+class TConfig(BaseModel):
+    name: Name
+    verify: Verify = False
+    base_url: BaseUrl = ""
+    # Text: prepare variables in debugtalk.py, ${gen_variables()}
+    variables: Union[VariablesMapping, Text] = {}
+    parameters: Union[VariablesMapping, Text] = {}
+    # setup_hooks: Hooks = []
+    # teardown_hooks: Hooks = []
+    export: Export = []
+    path: Text = None
+    weight: int = 1
 
 class TRequest(BaseModel):
     method: Text
@@ -36,9 +60,25 @@ class TRequest(BaseModel):
     upload: Dict = {}  # used for upload files
 
 
+
+
+
+class ProjectMeta(BaseModel):
+    debugtalk_py: Text = ""  # debugtalk.py file content
+    debugtalk_path: Text = ""  # debugtalk.py file path
+    dot_env_path: Text = ""  # .env file path
+    functions: FunctionsMapping = {}  # functions defined in debugtalk.py
+    env: Env = {}
+    RootDir: Text = os.getcwd()  # project root directory (ensure absolute), the path debugtalk.py located
+
+
+class TestCase(BaseModel):
+    config: TConfig
+    teststeps: Dict
+
 class TSimpleStep(BaseModel):
-    case_name: Text
-    case_key:Text= "run_request"
+    case_name: Text = ''
+    case_key: Text = "run_request"
     case_value: Dict = {case_key: {}}
     case_header: Dict = {"depend": [
         "requests"]}
@@ -51,4 +91,3 @@ class TSimpleStep(BaseModel):
     export: Export = []
     validators: Validators = Field([], alias="validate")
     validate_script: List[Text] = []
-

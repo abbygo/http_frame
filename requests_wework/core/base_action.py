@@ -1,17 +1,22 @@
-import base64
 import importlib
-import json
+
 import re
+import time
 
 import types
+
 from string import Template
 from typing import Union
 
 import yaml
-from jsonpath import jsonpath
 from loguru import logger
 
 from requests_wework.core.content import Content, PyContent
+from requests_wework.core.exceptions import ValidationFailure
+from requests_wework.core.models import TestCase
+from requests_wework.core.parser import build_url
+from requests_wework.core.response import ResponseObject
+from requests_wework.har2ncase import utils
 
 
 class BaseAction:
@@ -85,11 +90,11 @@ class BaseAction:
                     s.request_value = request_value
 
                 # tmp_class 的方法
-                def run(s, testData=None):
+                def run(s, testcase_obj: TestCase = None):
                     """
                     
                     :param s: 
-                    :param testData: 需要参数化的数据
+                    :param testcase_obj: 测试对象
                     :return: 
                     """
                     for (
@@ -100,32 +105,30 @@ class BaseAction:
                         if request_entry_key.startswith("run_"):
                             # 切割列表得到真实的方法名
                             request_method_name = request_entry_key[4:]
-                            try:
-
+                            if self.local_variable.get(request_method_name):
                                 return self.local_variable[request_method_name].run()
-                            # 报关键字异常，说明要发送请求了
-                            except KeyError:
-
+                            else:
                                 for import_mod in self.depends:
                                     # 判断导入的模块中是否包含属性或方法
                                     if hasattr(import_mod, request_method_name):
-                                        content_format = self.parse_value(
-                                            request_entry_value, testData
+                                        request_dict = self.parse_value(
+                                            request_entry_value, testcase_obj
                                         )
-                                        # 把int 类型的mobile 转换为str类型
-                                        if content_format.__contains__("json"):
-                                            if content_format["json"].__contains__(
-                                                "mobile"
-                                            ):
-                                                content_format["json"]["mobile"] = str(
-                                                    content_format["json"]["mobile"]
-                                                )
+                                        # # 把int 类型的mobile 转换为str类型
+                                        # if request_dict.__contains__("json"):
+                                        #     if request_dict["json"].__contains__(
+                                        #             "mobile"
+                                        #     ):
+                                        #         request_dict["json"]["mobile"] = str(
+                                        #             request_dict["json"]["mobile"]
+                                        #         )
 
                                         # 这句代码实际就是调用是发送请求的地方
                                         return self.send(
-                                            content_format,
+                                            request_dict,
                                             import_mod,
                                             request_method_name,
+                                            testcase_obj
                                         )
 
                 cls_dict = {"__init__": __init__, "run": run}
@@ -137,108 +140,120 @@ class BaseAction:
                 # 实例化类
                 self.local_variable[request_key] = tmp_class(request_value, request_key)
 
-    def send(self, content_format: dict, import_mod, request_method_name):
+    def send(self, request_dict: dict, import_mod, request_method_name,testcase_obj: TestCase = None):
         """
         发送请求入口
-        :param content_format: 发送的数据
+        :param request_dict: 发送的数据
         :param import_mod: 导入模块
         :param request_method_name: 请求方法名(request)；requests.request;
         :return: 
         """
         # todo
-        env = yaml.safe_load(
-            open(r"C:\Users\lnz\PycharmProjects\HGS\requests_wework\api\env.yaml")
-        )
-        req_dict = content_format.copy()
-        if content_format.__contains__("encoding"):
-            req_dict.pop("encoding")
-        if content_format.__contains__("validate"):
-            req_dict.pop("validate")
-        req_dict["url"] = str(env["env"][env["default"]]) + str(req_dict["url"])
+        self.__start_at = time.time()
+        # meta_req_dict = request_dict.copy()
+
+        encoding = request_dict.pop("encoding", "")
+
+        validate = request_dict.pop("validate", "")
+
+        extractors = request_dict.pop("extractors", {})
+
+        url = request_dict["url"]=build_url(testcase_obj.config.base_url, request_dict["url"])
+        # 在配置文件中读取是否需要配置证书
+        verify= testcase_obj.config.verify
         # 发送请求的地方，verify=False表示不验证证书
-        # getattr(import_mod, request_method_name)(**content_format)等价于 import_mod.request_method_name(**content_format)
-        res = getattr(import_mod, request_method_name)(verify=False, **req_dict)
-        # 对返回结果进行处理
-        # 如果字典的key包含encoding
-        if content_format.__contains__("encoding"):
-            if content_format["encoding"] == "base64":
-                response_json = json.loads(base64.b64decode(res.content))
-                return self.validate(content_format, response_json)
-            elif content_format["encoding"] == "private":
-                # todo
-                return getattr(import_mod, request_method_name)("url", data=res.content)
-            else:
-                # todo
-                pass
-        else:
-            # 调用断言方法
-            return self.validate(content_format, res)
+        # getattr(import_mod, request_method_name)(**request_dict)等价于 import_mod.request_method_name(**request_dict)
+        res = getattr(import_mod, request_method_name)(verify=verify, **request_dict)
+        resp_obj = ResponseObject(res)
+        method = request_dict.pop("method")
+        # 日志
+        def log_req_resp_details():
+            err_msg = "\n{} DETAILED REQUEST & RESPONSE {}\n".format("*" * 32, "*" * 32)
 
-    def validate(self, request_json: dict, response):
-        """
-        
-        :param request_json: 请求的数据
-        :param response: 响应的数据
-        :return: 
-        """
-        validate_list = request_json.get("validate", [])
-        for item in validate_list:
-            # eq这种方式已完善
-            if item.get("eq", []):
-                validate_key: str = item["eq"][0]
-                if validate_key.find("body") != -1:
-                    validate_key = validate_key.replace("body.", "")
-                    act_value = jsonpath(response.json(), f"$.{validate_key}")[0]
-                elif validate_key.find("status_code") != -1:
-                    act_value = getattr(response, validate_key)
-                elif validate_key.find("headers") != -1:
-                    validate_key = validate_key.replace("headers.", "")
-                    act_value = response.headers.get(validate_key)
-                else:
-                    # todo
-                    act_value = []
-                    pass
-                except_value = item["eq"][1]
-                assert except_value == act_value
-            else:
-                # todo
-                pass
+            # log request
+            err_msg += "====== request details ======\n"
+            err_msg += f"url: {url}\n"
+            err_msg += f"method: {method}\n"
+            headers = request_dict.pop("headers", {})
+            err_msg += f"headers: {headers}\n"
+            for k, v in request_dict.items():
+                v = utils.omit_long_data(v)
+                err_msg += f"{k}: {repr(v)}\n"
 
-        return response.json()
+            err_msg += "\n"
 
-    def parse_value(self, content, testData=None):
+            # log response
+            err_msg += "====== response details ======\n"
+            err_msg += f"status_code: {res.status_code}\n"
+            err_msg += f"headers: {res.headers}\n"
+            err_msg += f"body: {repr(res.text)}\n"
+            logger.error(err_msg)
+
+        # extract
+        # 提取内容，并存入变量中
+        extract_mapping = resp_obj.extract(extractors)
+        self.local_variable.update(extract_mapping)
+
+        # validate
+
+        try:
+            resp_obj.validate(validate)
+            session_success = True
+        except ValidationFailure:
+            session_success = False
+            log_req_resp_details()
+
+            self.__duration = time.time() - self.__start_at
+            raise
+        finally:
+            pass
+
+            # self.success = session_success
+            # step_data.success = session_success
+            #
+            # if hasattr(self.__session, "data"):
+            #     # httprunner.client.HttpSession, not locust.clients.HttpSession
+            #     # save request & response meta data
+            #     self.__session.data.success = session_success
+            #     self.__session.data.validators = resp_obj.validation_results
+            #
+            #     # save step data
+            #     step_data.data = self.__session.data
+
+    def parse_value(self, content, testcase_obj: TestCase = None):
         """
         解析函数为可执行的函数？？
         :param content:
-        :param testData: 测试数据
+        :param testcase_obj: 测试对象
         :return:
         """
         raw = yaml.dump(content)
         # 替换其他的变量为真实的测试数据
-        if testData:
-            raw = Template(raw).safe_substitute(testData)
+        if testcase_obj:
+            raw = Template(raw).safe_substitute(testcase_obj.config.variables)
         # r是（rawsting） 的缩写，作用避免少写了\
         functions = re.findall(r"\$\((.*)\)", raw)
         for function in functions:
-            # 解析到有函数就要调用run_run方法
-            parse_res = self.run_fun(function, testData)
-            # 以下判断的代码暂时未使用
-            # todo
-            if "access_token" in parse_res.keys():
-                raw = raw.replace(f"$({function})", repr(parse_res["access_token"]))
+
+            if function in self.local_variable.keys():
+
+                raw = raw.replace(f"$({function})", repr(self.local_variable[function]))
             else:
-                raw = raw.replace(f"$({function})", repr(parse_res))
+                pass
+        #         todo
+
         return yaml.safe_load(raw)
 
-    def run_fun(self, request_key, testData: dict = None):
+    def run_fun(self, request_key, testcase_obj: TestCase):
         """
         运行方法
         :param request_key: 函数名
-        :param testData: 测试数据(需要参数的测试数据)
+        :param testcase_obj: 测试对象
         :return:
         """
 
         try:
-            return self.local_variable[request_key].run(testData)
-        except KeyError as e:
-            raise e
+            return self.local_variable[request_key].run(testcase_obj)
+        except KeyError:
+            logger.exception(f"{request_key} not found")
+            # raise e

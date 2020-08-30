@@ -13,6 +13,8 @@ def_gettoken:
             Accept-Encoding: gzip, deflate
             Accept: '*/*'
             Connection: keep-alive
+        extractors:
+            token: "body.access_token"
         validate:
         -   eq:
             - status_code
@@ -29,3 +31,34 @@ def_gettoken:
         -   eq:
             - body.expires_in
             - 7200
+def_create:
+    run_request:
+        method: POST
+        url: /cgi-bin/tag/create
+        params:
+            access_token: $(token)
+        headers:
+            Host: qyapi.weixin.qq.com
+            User-Agent: python-requests/2.24.0
+            Accept-Encoding: gzip, deflate
+            Accept: '*/*'
+            Connection: keep-alive
+            Content-Type: application/json
+            Content-Length: '33'
+        json:
+            tagid: 860
+            tagname: u6gti0
+        validate:
+        -   eq:
+            - status_code
+            - 200
+        -   eq:
+            - headers.Content-Type
+            - application/json; charset=UTF-8
+        -   eq:
+            - body.errcode
+            - 0
+        -   eq:
+            - body.errmsg
+            - created
+

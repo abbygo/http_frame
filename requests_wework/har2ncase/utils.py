@@ -1,4 +1,8 @@
+import os
 from urllib.parse import unquote
+
+from requests_wework.core import exceptions
+
 
 def convert_list_to_dict(origin_list):
     """ convert HAR data list to mapping
@@ -44,3 +48,38 @@ def convert_x_www_form_urlencoded_to_dict(post_data):
         return converted_dict
     else:
         return post_data
+def get_os_environ(variable_name):
+    """ get value of environment variable.
+
+    Args:
+        variable_name(str): variable name
+
+    Returns:
+        value of environment variable.
+
+    Raises:
+        exceptions.EnvNotFound: If environment variable not found.
+
+    """
+    try:
+        return os.environ[variable_name]
+    except KeyError:
+        raise exceptions.EnvNotFound(variable_name)
+
+def omit_long_data(body, omit_len=512):
+    """ omit too long str/bytes
+    """
+    if not isinstance(body, (str, bytes)):
+        return body
+
+    body_len = len(body)
+    if body_len <= omit_len:
+        return body
+
+    omitted_body = body[0:omit_len]
+
+    appendix_str = f" ... OMITTED {body_len - omit_len} CHARACTORS ..."
+    if isinstance(body, bytes):
+        appendix_str = appendix_str.encode("utf-8")
+
+    return omitted_body + appendix_str
