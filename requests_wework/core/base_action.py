@@ -16,7 +16,7 @@ from requests_wework.core.exceptions import ValidationFailure
 from requests_wework.core.models import TestCase
 from requests_wework.core.parser import build_url
 from requests_wework.core.response import ResponseObject
-from requests_wework.har2ncase import utils
+from requests_wework.ExtFiles2Case import utils
 
 
 class BaseAction:

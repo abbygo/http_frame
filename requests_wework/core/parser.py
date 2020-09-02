@@ -6,7 +6,7 @@ from httprunner import loader
 
 from requests_wework.core import exceptions
 from requests_wework.core.models import FunctionsMapping
-from requests_wework.har2ncase import utils
+from requests_wework.ExtFiles2Case import utils
 
 absolute_http_url_regexp = re.compile(r"^https?://", re.I)
 status_code_regexp = re.compile(r"\((\d+)\)")

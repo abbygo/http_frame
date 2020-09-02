@@ -1,4 +1,4 @@
-from requests_wework.har2ncase import HarParser
+from requests_wework.ExtFiles2Case import HarParser
 
 
 def test_gen_py_testcase_no_yaml():

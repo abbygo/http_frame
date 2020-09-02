@@ -1,8 +1,8 @@
 import pytest
 
-from requests_wework.har2ncase import HarParser
-from requests_wework.har2ncase.main_parser import PostManParser
-from requests_wework.har2ncase.make import call_gen_py_testcase
+from requests_wework.ExtFiles2Case import HarParser
+from requests_wework.ExtFiles2Case.core import PostManParser
+from requests_wework.ExtFiles2Case.make import call_gen_py_testcase
 
 '''
 测试core用例

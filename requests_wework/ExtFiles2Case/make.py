@@ -8,7 +8,7 @@ import yaml
 from loguru import logger
 from sentry_sdk import capture_exception
 
-from requests_wework.har2ncase.utils import is_support_multiprocessing
+from requests_wework.ExtFiles2Case.utils import is_support_multiprocessing
 
 
 def format_pytest_with_black(*python_paths: Text) -> NoReturn:
