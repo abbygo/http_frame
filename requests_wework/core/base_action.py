@@ -25,10 +25,6 @@ class BaseAction:
     # 局部函数表，key是函数名，value 是包含这个函数的类名地址
     local_variable = {}
 
-    """
-    
-    """
-
     # 变量名说明
     # yaml_data(yaml中的数据)--》yaml 中的最外层key,value：request_key(dict_key),request_value（dict_value）,
     # -->yaml 第2层中的字典key request_entry_key(dict_key); request_entry_value((dict_value))
@@ -79,11 +75,8 @@ class BaseAction:
                 # 循环导入
                 for depend in request_value:
                     self.depends.append(importlib.import_module(depend))
-            # 函数的命名规则都要一个前缀来表面是函数，def_
-            elif request_key.startswith("def_"):
-                # 去掉函数前缀def_,获取真实的函数名
-                request_key = request_key[4:]
-
+            # 函数的命名规则都要一个前缀来表示是函数，test_
+            elif request_key.startswith("test_"):
                 #   tmp_class  类的初始化 方法
                 def __init__(s, request_value, request_key):
                     s.request_key = request_key
@@ -199,6 +192,7 @@ class BaseAction:
         try:
             resp_obj.validate(validate)
             session_success = True
+            # log_req_resp_details()
         except ValidationFailure:
             session_success = False
             log_req_resp_details()

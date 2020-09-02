@@ -4,14 +4,18 @@ import os
 import sys
 import urllib.parse as urlparse
 from json import JSONDecodeError
-from typing import Text
+from typing import Text, Dict, List
 
 from pathlib import Path
 from sentry_sdk import capture_exception
 from loguru import logger
 import yaml
 
+from requests_wework.core.parser import get_status_code
+from requests_wework.har2ncase.make import gen_py_testcase_no_yaml
 from requests_wework.har2ncase.utils import convert_x_www_form_urlencoded_to_dict, convert_list_to_dict
+
+
 def ensure_file_path(path: Text) -> Text:
     if not path:
         logger.error("HAR file not specified.")
@@ -30,6 +34,256 @@ def ensure_file_path(path: Text) -> Text:
 
     return path
 
+
+class PostManParser(object):
+
+    def __init__(self, postman_file_path):
+        self.postman_file_path = postman_file_path
+
+
+
+    '''
+    分析：postman 的数据内容是放到item下的列表中，列表包含了字典，一个字典包含完整请求，一共
+    4个部分：name,event,request,response
+
+    eg:
+    {
+	"info": {
+	},
+	"item": [
+		{
+			"name": "get请求",
+			"event": [
+			],
+			"request": {
+
+			},
+			"response": []
+		},
+	}
+    '''
+
+    def read_content(self):
+        '''
+        读取postman文件内容
+        :return:
+        '''
+        if os.path.isfile(self.postman_file_path):
+            try:
+                with  open(self.postman_file_path, encoding='utf-8') as file:
+
+                    postman_content = json.load(file)
+                    return postman_content
+            except:
+                # todo
+                # 具体异常
+                raise
+
+        else:
+            logger.error(f'{self.postman_file_path} is not a file')
+            sys.exit(1)
+
+    def prepare_entry(self, postman_content: Dict):
+        '''
+        准备数据
+        :return:
+        {'test_get': {'method': 'GET',-----}}
+        '''
+        total_data={}
+        item: List = postman_content.pop('item')
+        for entry in item:
+            requst_entry = {}
+            request:Dict=entry.get('request')
+            event:List=entry.get('event')
+            method={'method':request['method']}
+            url,params=self.make_url(request['url'])
+            # path会有多个，取最后一个
+            path=request['url']['path'][-1]
+            # 有些path的路径是-，需要替换为_
+            path=path.replace('-','_')
+            # 方法名
+            fun_name = f"test_{path}"
+            requst_entry.update(method)
+            requst_entry.update(url)
+            if params:
+                requst_entry.update(params)
+
+            if request.get('header'):
+                headers={'headers':convert_list_to_dict(request.get('header'))}
+                if headers:
+                    requst_entry.update(headers)
+            if request.get('auth'):
+                auth_headers=self.make_auth_header(request.get('auth'))
+                if auth_headers:
+                    # 有认证信息头
+                    if requst_entry.get('headers'):
+                        requst_entry.get('headers').update(auth_headers)
+                    else:
+                        requst_entry['headers']=auth_headers
+            if request.get('body'):
+                body=self.make_body(method,request.get('body'))
+                if body:
+                    requst_entry.update(body)
+
+
+            if event:
+                validate=self.make_validate(event)
+                if validate:
+                    requst_entry.update(validate)
+            total_data[fun_name]=requst_entry
+        return total_data
+
+
+    def make_auth_header(self,auth:Dict):
+        '''
+        获取认证信息中头信息
+        :param auth:
+        :return:
+        '''
+        if auth.get('type')=='basic':
+            auth_list=convert_list_to_dict(auth.get('basic'))
+            return auth_list
+        else:
+            pass
+    #         todo
+
+
+    def make_validate(self, event: List):
+        '''
+        构造validate
+        :param event: eg:
+        [
+				{
+					"listen": "test",
+					"script": {
+						"id": "fda4a0f5-1526-4526-8313-7cbc95a0e4d1",
+						"exec": [
+							"pm.test(\"Status code is 200\", function () {\r",
+							"    pm.response.to.have.status(200);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+        :return:
+        "validate": [
+                {
+                    "eq": [
+                        "status_code",
+                        200
+                    ]
+                }
+        ]
+        '''
+        validate_list = []
+        for i in event:
+            if i.get('script'):
+                if i.get('script').get('exec'):
+                    exec_list: List = i.get('script').get('exec')
+                    try:
+                        # todo
+                        # 获取其他类型断言，目前只提取了状态码的这种
+                        # 获取状态码所在的索引
+
+                        # index = exec_list.index('pm.response.to.have.status')
+                        # 通过索引获取值
+                        value = exec_list[1]
+                        # 正则提取状态码
+                        status_code = get_status_code(value)
+                        # 添加到列表中
+                        if status_code:
+                            item = {'eq': ["status_code", int(status_code)]}
+                            validate_list.append(item)
+
+                    except ValueError:
+                        pass
+        if validate_list:
+            return {"validate":validate_list}
+
+
+
+    def make_url(self, raw_url: Dict):
+        '''
+        提取url
+        :param raw_url:
+        :return:
+        '''
+        params=''
+        raw: Text = raw_url['raw']
+        if raw.find('?') != -1:
+            raw_list = raw_url['raw'].split('?')
+            url = raw_list[0]
+            params=convert_list_to_dict(raw_url['query'])
+        else:
+            url = raw_url['raw']
+
+        if params:
+
+            return {'url':url},{'params': params}
+        else:
+            return {'url': url}, params
+
+
+
+
+    def make_body(self,method,body:Dict):
+        requst_data={}
+        if method not in ['GET','get']:
+            if body.get('mode'):
+                if body.get('mode')=='formdata':
+                    key='data'
+                    value=convert_list_to_dict(body.get('formdata'))
+                    requst_data[key]=value
+                    return requst_data
+                if body.get('mode')=='raw':
+                    if body.get('options'):
+                        if body.get('options')['raw']['language']=='json':
+                            key='json'
+                            value=body.get('raw')
+
+                            requst_data[key] = eval(value)
+                            return requst_data
+                        elif body.get('options')['raw']['language']=='javascript':
+                            pass
+                    #         todo
+                        elif body.get('options')['raw']['language'] == 'xml':
+                            pass
+                    #         todo
+
+                    else:
+                      #todo
+                      # 是否需要添加'Content-Type': 'text/plain'
+                      key='data'
+                      value = body.get('raw')
+                      requst_data[key] = value
+                      return requst_data
+                if body.get('mode') == 'binary':
+                    pass
+#                     todo
+#                     x-www-form-urlencode
+
+    def call_gen_python_testcase_by_postman(self,file_type="py"):
+        '''
+        调用方法，直接生成可运行的python文件(不需要准备yaml文件)
+        :param file_type: 文件类型
+
+        '''
+        logger.info(f"Start to generate testcase from {self.postman_file_path}")
+        try:
+            content = self.read_content()
+
+            content_dict = self.prepare_entry(content)
+
+            p = Path(self.postman_file_path)
+            class_name = f'Test{p.stem}'
+            file_name = f'test_{p.stem}.py'
+            gen_py_testcase_no_yaml(content_dict, file_name, class_name)
+
+        except Exception as ex:
+            capture_exception(ex)
+            raise
+
 class HarParser(object):
     def __init__(self, har_file_path, filter_str=None, exclude_str=None):
         self.har_file_path = ensure_file_path(har_file_path)
@@ -47,7 +301,7 @@ class HarParser(object):
 
         teststep_dict["method"] = method
 
-    def pre_header(self, teststep_dict, request_json):
+    def prepare_header(self, teststep_dict, request_json):
         '''
         构造请求头
         :param request_json: 请求json
@@ -215,10 +469,10 @@ class HarParser(object):
 
                 teststep_dict["validate"].append({"eq": ["body.{}".format(key), value]})
 
-    def _prepare_teststeps(self, harfile):
+    def _prepare_data_by_har(self, harfile):
         """ make teststep list.
-            准备yaml文件格式的数据
-        eg:*.yaml
+            由har后缀的数据转换为特定格式的数据
+            eg:*.yaml
 
     depend:
     - requests
@@ -253,7 +507,7 @@ class HarParser(object):
                     name = parsed_object.path
 
                 # 方法名
-                fun_name = "def_" + name
+                fun_name = "test_" + name
                 # 请求的字典
                 request_dict = {}
                 # 方法
@@ -262,7 +516,7 @@ class HarParser(object):
 
                 self.__make_request_url(request_dict, request_json)
                 self.__make_request_cookies(request_dict, request_json)
-                self.pre_header(request_dict, request_json)
+                self.prepare_header(request_dict, request_json)
                 self._make_request_data(request_dict, request_json)
                 # 构造断言列表
                 request_dict['validate'] = []
@@ -279,7 +533,7 @@ class HarParser(object):
         '''
         logger.info(f"Start to generate testcase from {self.har_file_path}")
         try:
-            content_dict = self._prepare_teststeps(self.har_file_path)
+            content_dict = self._prepare_data_by_har(self.har_file_path)
         except Exception as ex:
             capture_exception(ex)
             raise
@@ -303,9 +557,23 @@ class HarParser(object):
             logger.exception("-2y|-2j prameter missed in request.")
             sys.exit(1)
 
+    def call_gen_python_testcase(self, file_type="py"):
+        '''
+        调用方法，直接生成可运行的python文件(不需要准备yaml文件)
+        :param file_type: 文件类型
 
+        '''
+        logger.info(f"Start to generate testcase from {self.har_file_path}")
+        try:
+            content_dict = self._prepare_data_by_har(self.har_file_path)
+            p = Path(self.har_file_path)
+            class_name = f'Test{p.stem}'
+            file_name = f'test_{p.stem}.py'
+            gen_py_testcase_no_yaml(content_dict, file_name, class_name)
 
-
+        except Exception as ex:
+            capture_exception(ex)
+            raise
 
 
 def dump_json(testcase, json_file):
@@ -330,11 +598,3 @@ def dump_yaml(testcase, yaml_file):
 
     with open(yaml_file, "w", encoding="utf-8") as outfile:
         yaml.safe_dump(testcase, outfile, allow_unicode=True, default_flow_style=False, indent=4, sort_keys=False)
-
-
-
-
-
-
-
-

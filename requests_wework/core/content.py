@@ -24,6 +24,9 @@ class Content:
         return self._data
 
 class PyContent:
+    '''
+    用于py文件
+    '''
     def __init__(self, data):
        self._data=data
     # 获取数据

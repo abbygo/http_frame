@@ -9,7 +9,7 @@ from requests_wework.core.models import FunctionsMapping
 from requests_wework.har2ncase import utils
 
 absolute_http_url_regexp = re.compile(r"^https?://", re.I)
-
+status_code_regexp = re.compile(r"\((\d+)\)")
 
 def get_mapping_function(
         function_name: Text, functions_mapping: FunctionsMapping
@@ -67,3 +67,17 @@ def build_url(base_url, path):
         return "{}/{}".format(base_url.rstrip("/"), path.lstrip("/"))
     else:
         raise exceptions.ParamsError("base url missed!")
+
+def get_status_code(str):
+    '''
+    获取状态码
+    :param str:
+    eg:
+    "    pm.response.to.have.status(200);\r",
+    :return:
+    '''
+    res_list=status_code_regexp.findall(str)
+    if res_list:
+        return res_list[0]
+    else:
+        return res_list

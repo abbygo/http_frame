@@ -6,27 +6,11 @@ import inspect
 
 from typing import Text, Union, Any
 
-from pydantic import BaseModel
-
-from requests_wework.core.models import TSimpleStep, TRequest, MethodEnum, Name, Verify, BaseUrl, VariablesMapping, \
-    Export, TConfig
-
-
-class SimpleStep:
-    def __init__(self):
-        self.__step_context = TSimpleStep()
-
-    def post(self, url: Text):
-        self.__step_context.request = TRequest(method=MethodEnum.POST, url=url)
-        return RequestWithOptionalArgs(self.__step_context)
-
-    def get(self, url: Text):
-        self.__step_context.request = TRequest(method=MethodEnum.GET, url=url)
-        return RequestWithOptionalArgs(self.__step_context)
+from requests_wework.core.models import TStep, TRequest, MethodEnum, TConfig
 
 
 class StepRequestValidation(object):
-    def __init__(self, step_context: TSimpleStep):
+    def __init__(self, step_context: TStep):
         self.__step_context = step_context
 
     def assert_equal(
@@ -45,12 +29,12 @@ class StepRequestValidation(object):
         )
         return self
 
-    def perform(self) -> TSimpleStep:
+    def perform(self) -> TStep:
         return self.__step_context
 
 
 class StepRequestExtraction(object):
-    def __init__(self, step_context: TSimpleStep):
+    def __init__(self, step_context: TStep):
         self.__step_context = step_context
 
     def with_jmespath(self, jmes_path: Text, var_name: Text) -> "StepRequestExtraction":
@@ -60,12 +44,12 @@ class StepRequestExtraction(object):
     def validate(self) -> StepRequestValidation:
         return StepRequestValidation(self.__step_context)
 
-    def perform(self) -> TSimpleStep:
+    def perform(self) -> TStep:
         return self.__step_context
 
 
 class RequestWithOptionalArgs(object):
-    def __init__(self, step_context: TSimpleStep):
+    def __init__(self, step_context: TStep):
         self.__step_context = step_context
 
     def with_params(self, **params) -> "RequestWithOptionalArgs":
@@ -116,31 +100,8 @@ class RequestWithOptionalArgs(object):
     def validate(self) -> StepRequestValidation:
         return StepRequestValidation(self.__step_context)
 
-    def perform(self) -> TSimpleStep:
+    def perform(self) -> TStep:
         return self.__step_context
-
-
-class Step(object):
-    def __init__(
-            self,
-            step_context: Union[
-                StepRequestValidation, RequestWithOptionalArgs, SimpleStep,
-            ],
-    ):
-        self.__step_context = step_context.perform()
-
-    @property
-    def request(self) -> TRequest:
-        return self.__step_context.request
-
-    # @property
-    # def testcase(self) -> TestCase:
-    #     return self.__step_context.testcase
-
-    def perform(self) -> TSimpleStep:
-        return self.__step_context
-
-
 
 
 class Config(object):
@@ -197,3 +158,60 @@ class Config(object):
             path=self.__path,
             weight=self.__weight,
         )
+
+
+class RunRequest(object):
+    '''
+    请求方法和url的封装
+    '''
+    def __init__(self):
+        self.__step_context = TStep()
+
+    def post(self, url: Text)-> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.POST, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def get(self, url: Text)-> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.GET, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def put(self, url: Text) -> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.PUT, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def head(self, url: Text) -> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.HEAD, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def delete(self, url: Text) -> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.DELETE, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def options(self, url: Text) -> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.OPTIONS, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+    def patch(self, url: Text) -> RequestWithOptionalArgs:
+        self.__step_context.request = TRequest(method=MethodEnum.PATCH, url=url)
+        return RequestWithOptionalArgs(self.__step_context)
+
+
+class Step(object):
+    def __init__(
+            self,
+            step_context: Union[
+                StepRequestValidation, RequestWithOptionalArgs, RunRequest,
+            ],
+    ):
+        self.__step_context = step_context.perform()
+
+    @property
+    def request(self) -> TRequest:
+        return self.__step_context.request
+
+    # @property
+    # def testcase(self) -> TestCase:
+    #     return self.__step_context.testcase
+
+    def perform(self) -> TStep:
+        return self.__step_context

@@ -15,7 +15,7 @@ from loguru import logger
 from sentry_sdk import capture_message
 from pathlib import Path
 
-from requests_wework.har2ncase.core import HarParser
+from requests_wework.har2ncase.main_parser import HarParser
 from requests_wework.har2ncase.make import call_gen_py_testcase
 
 

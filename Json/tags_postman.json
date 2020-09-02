@@ -1,0 +1,119 @@
+{
+	"info": {
+		"_postman_id": "71e444e1-2a8a-4d0c-bc07-4c4cba946e3d",
+		"name": "0901",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "get_token",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "0d8d59df-0942-478a-942a-9dd0d3cf083e",
+						"exec": [
+							"tests[\"Status code is 200\"] = responseCode.code === 200;\r",
+							"\r",
+							"\r",
+							"var jsonData=pm.response.json();\r",
+							"var access_token=jsonData.access_token;\r",
+							"\r",
+							"pm.environment.set(\"access_token\", access_token);\r",
+							""
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "https://qyapi.weixin.qq.com/cgi-bin/gettoken?corpid=wwf2dbb0a93f2eac33&corpsecret=fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc",
+					"protocol": "https",
+					"host": [
+						"qyapi",
+						"weixin",
+						"qq",
+						"com"
+					],
+					"path": [
+						"cgi-bin",
+						"gettoken"
+					],
+					"query": [
+						{
+							"key": "corpid",
+							"value": "wwf2dbb0a93f2eac33"
+						},
+						{
+							"key": "corpsecret",
+							"value": "fmDbF_Ll4GPiYmrqHrqtztTTVkbG6Z1NqXjiJ-eQ1gc"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "add_tag",
+			"event": [
+				{
+					"listen": "test",
+					"script": {
+						"id": "558c9051-09b5-4e27-acb1-dfddc8200f39",
+						"exec": [
+							"pm.test(\"Successful POST request\", function () {\r",
+							"    pm.expect(pm.response.code).to.be.oneOf([200]);\r",
+							"});"
+						],
+						"type": "text/javascript"
+					}
+				}
+			],
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json",
+						"type": "text"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\"tagid\": 160, \"tagname\": \"ux15i0\"}",
+					"options": {
+						"raw": {
+							"language": "json"
+						}
+					}
+				},
+				"url": {
+					"raw": "https://qyapi.weixin.qq.com/cgi-bin/tag/create?access_token={{access_token}}",
+					"protocol": "https",
+					"host": [
+						"qyapi",
+						"weixin",
+						"qq",
+						"com"
+					],
+					"path": [
+						"cgi-bin",
+						"tag",
+						"create"
+					],
+					"query": [
+						{
+							"key": "access_token",
+							"value": "{{access_token}}"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	],
+	"protocolProfileBehavior": {}
+}

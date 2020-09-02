@@ -1,4 +1,5 @@
 import os
+from queue import Queue
 from urllib.parse import unquote
 
 from requests_wework.core import exceptions
@@ -20,7 +21,7 @@ def convert_list_to_dict(origin_list):
             {"v": "1", "w": "2"}
 
     """
-    return {item["name"]: item.get("value") for item in origin_list}
+    return {item.get("name",item['key']): item.get("value") for item in origin_list}
 
 
 
@@ -48,6 +49,13 @@ def convert_x_www_form_urlencoded_to_dict(post_data):
         return converted_dict
     else:
         return post_data
+def is_support_multiprocessing() -> bool:
+    try:
+        Queue()
+        return True
+    except (ImportError, OSError):
+        # system that does not support semaphores(dependency of multiprocessing), like Android termux
+        return False
 def get_os_environ(variable_name):
     """ get value of environment variable.
 

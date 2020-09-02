@@ -76,7 +76,7 @@ class TestCase(BaseModel):
     config: TConfig
     teststeps: Dict
 
-class TSimpleStep(BaseModel):
+class TStep(BaseModel):
     case_name: Text = ''
     case_key: Text = "run_request"
     case_value: Dict = {case_key: {}}
