@@ -80,8 +80,8 @@ class TStep(BaseModel):
     case_name: Text = ''
     case_key: Text = "run_request"
     case_value: Dict = {case_key: {}}
-    case_header: Dict = {"depend": [
-        "requests"]}
+    # case_header: Dict = {"depend": [
+    #     "requests"]}
     request: Union[TRequest, None] = None
     setup_hooks: Hooks = []
     teardown_hooks: Hooks = []

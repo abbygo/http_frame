@@ -2,14 +2,12 @@ import builtins
 import re
 from typing import Text, Callable
 
-from httprunner import loader
-
-from requests_wework.core import exceptions
+from requests_wework.core import exceptions, loader
 from requests_wework.core.models import FunctionsMapping
 from requests_wework.ExtFiles2Case import utils
 
 absolute_http_url_regexp = re.compile(r"^https?://", re.I)
-status_code_regexp = re.compile(r"\((\d+)\)")
+
 
 def get_mapping_function(
         function_name: Text, functions_mapping: FunctionsMapping
@@ -31,8 +29,8 @@ def get_mapping_function(
     if function_name in functions_mapping:
         return functions_mapping[function_name]
 
-    elif function_name in ["parameterize", "P"]:
-        return loader.load_csv_file
+    # elif function_name in ["parameterize", "P"]:
+    #     return loader.load_csv_file
 
     elif function_name in ["environ", "ENV"]:
         return utils.get_os_environ
@@ -68,16 +66,4 @@ def build_url(base_url, path):
     else:
         raise exceptions.ParamsError("base url missed!")
 
-def get_status_code(str):
-    '''
-    获取状态码
-    :param str:
-    eg:
-    "    pm.response.to.have.status(200);\r",
-    :return:
-    '''
-    res_list=status_code_regexp.findall(str)
-    if res_list:
-        return res_list[0]
-    else:
-        return res_list
+

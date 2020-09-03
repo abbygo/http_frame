@@ -10,7 +10,6 @@ from loguru import logger
 from sentry_sdk import capture_exception
 
 from requests_wework.action.api_action import api_action
-from requests_wework.core.content import PyContent
 from requests_wework.core.models import TStep, VariablesMapping, TestCase, TConfig
 from requests_wework.core.testcase import Step, Config
 
@@ -19,18 +18,20 @@ class PareStep(object):
     config: Config
     __case_id: Text = ""
     __session_variables: VariablesMapping = {}
-    case_name_list = []
+
+    # case_name_list = []
 
     def __init_tests__(self, step: Step) -> NoReturn:
+        # 获取config中的数据
         self.__config = self.config.perform()
         self.step = step
 
         self.data_entries: Dict = {"depend": ["requests"]}
-        self.case_name_list = []
+        self.testcase_name = ''
         # for step in self.teststeps:
         self.__teststeps = {}
         self.__case_id = self.__case_id or str(uuid.uuid4())
-        # parse config name
+
         config_variables = self.__config.variables
 
         config_variables.update(self.__session_variables)
@@ -44,6 +45,35 @@ class PareStep(object):
         self.init_data()
 
     def init_data(self):
+        '''
+        构造数据
+
+        eg:data_entries数据结构：
+
+        {
+    "depend": [
+        "requests"
+    ],
+    "test_gettoken": {
+        "run_request": {
+            "method": "GET",
+            "url": "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
+            "params": {
+                "corpid": "wwf2dbb0a93f2eac33",
+
+            },
+            "headers": {
+                "Host": "qyapi.weixin.qq.com",
+
+            },
+            "validate": [
+                {
+                    "eq": [
+                        "status_code",
+                        200
+                    ]
+                },]}
+        '''
         tstep: TStep = self.step.perform()
         # 获取测试用例的名称；eg:test_gettoken
         name = inspect.stack()[3].function
@@ -52,7 +82,7 @@ class PareStep(object):
 
             # 构造case_name
             tstep.case_name = name
-            self.case_name_list.append(name)
+            self.testcase_name = name
         else:
             logger.exception('not found test_开头的函数')
             sys.exit(1)
@@ -109,13 +139,14 @@ class PareStep(object):
         self.__session_variables = variables
         return self
 
-    def load_project_meta(self,tconfig:TConfig):
+    def load_project_meta(self, tconfig: TConfig):
         # 获取正在执行的用例名称
         filename = inspect.stack()[2].filename
         # C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\test_tag_newpy.py
         p = Path(filename)
         # 查找env文件
-        env_path=''
+        env_path = ''
+
         def find_env_file(i=0):
             # 找到了文件这个变量变为TRue
             find_file = False
@@ -125,7 +156,7 @@ class PareStep(object):
                     if str(path).endswith('env.yml'):
                         find_file = True
                         nonlocal env_path
-                        env_path=path
+                        env_path = path
                         return env_path
             if find_file == False:
                 i += 1
@@ -137,20 +168,20 @@ class PareStep(object):
                     sys.exit(1)
 
         find_env_file()
-        with open(env_path,encoding='utf-8') as f:
+        with open(env_path, encoding='utf-8') as f:
 
             '''
             读取env文件内容
             '''
-            content=yaml.safe_load(f)
+            content = yaml.safe_load(f)
             # 替换base_url
             function_regex_compile = re.compile(r"\$\{(\w+)\((\w+)\)\}")
 
             try:
-                result_list:list=function_regex_compile.findall(tconfig.base_url)
+                result_list: list = function_regex_compile.findall(tconfig.base_url)
                 # result_list==>[('ENV','base_url')]
                 if result_list:
-                    if result_list[0][0]=='ENV':
+                    if result_list[0][0] == 'ENV':
                         if content.get(result_list[0][1]):
 
                             tconfig.base_url = content.get(result_list[0][1])
@@ -163,19 +194,30 @@ class PareStep(object):
                 capture_exception(ex)
                 return []
 
-
-    def start(self, step):
+    def start(self, step: Step):
+        '''
+        入口
+        :param step:
+        eg:
+        包含多个对象： def __init__(
+            self,
+            step_context: Union[
+                StepRequestValidation, RequestWithOptionalArgs, RunRequest,
+            ],
+        :return:
+        '''
         try:
 
             self.__init_tests__(step)
+            # 加载env.yaml中的数据
             self.load_project_meta(self.__config)
+            # 组装测试对象
             testcase_obj = TestCase(config=self.__config, teststeps=self.data_entries)
+            # 实例化api类
+            api_obj = api_action(self.data_entries)
+            #调用运行方法
+            api_obj.run_fun(self.testcase_name, testcase_obj)
 
-            content = PyContent(self.data_entries)
-            expression = api_action(content)
-
-            for fun_name in self.case_name_list:
-                res = expression.run_fun(fun_name, testcase_obj)
 
         except:
             raise

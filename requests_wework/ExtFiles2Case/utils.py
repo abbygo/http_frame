@@ -13,7 +13,7 @@ def convert_list_to_dict(origin_list):
         origin_list (list)
             [
                 {"name": "v", "value": "1"},
-                {"name": "w", "value": "2"}
+                {"key": "w", "value": "2"}
             ]
 
     Returns:

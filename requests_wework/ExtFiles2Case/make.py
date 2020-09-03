@@ -33,7 +33,24 @@ $ pip install black
 """
         logger.error(err_msg)
         sys.exit(1)
-def pare_content(yamlcontent: Dict):
+def prepare_content(yamlcontent: Dict):
+    '''
+    准备内容
+    :param yamlcontent:
+    :return:
+    eg:
+    test_gettoken:
+        method: GET
+        url: https://qyapi.weixin.qq.com/cgi-bin/gettoken
+        params:
+            corpid: xx
+        headers:
+            Host: qyapi.weixin.qq.com
+        validate:
+        -   eq:
+            - status_code
+            - 200
+    '''
     if yamlcontent.get('depend'):
         yamlcontent.pop('depend')
         request_entry_dict = {}
@@ -46,6 +63,11 @@ def pare_content(yamlcontent: Dict):
 
 
 def make_config_chain_style(config: Dict) -> Text:
+    '''
+
+    :param config:
+    :return:
+    '''
     config_chain_style = f'Config("{config["name"]}")'
 
     if config["variables"]:
@@ -68,6 +90,44 @@ def make_config_chain_style(config: Dict) -> Text:
 
 
 def make_request_chain_style(request: Dict) -> Text:
+    '''
+    构造请求字符串
+    :param request:
+    eg:
+   {
+    "method": "GET",
+    "url": "https://qyapi.weixin.qq.com/cgi-bin/gettoken",
+    "params": {
+        "corpid": "x3",
+
+    },
+    "headers": {
+        "Host": "qyapi.weixin.qq.com",
+    },
+    "validate": [
+        {
+            "eq": [
+                "status_code",
+                200
+            ]
+        },]}
+    :return:
+    eg:
+     .get("https://qyapi.weixin.qq.com/cgi-bin/gettoken")
+    .with_params(
+        **{
+            "corpid": "wwf2dbb0a93f2eac33",
+        }
+    )
+    .with_headers(
+        **{
+            "Host": "qyapi.weixin.qq.com",
+        }
+    )
+    .validate()
+    .assert_equal("status_code", 200)
+
+    '''
     method = request["method"].lower()
     url = request["url"]
     request_chain_style = f'.{method}("{url}")'
@@ -173,7 +233,7 @@ class {{ class_name }}(PareStep):
         .verify(False)
     )
     
-{% for key,value in teststeps_chain_style.items() %}
+{% for key,value in request_entry_dict.items() %}
     def {{key}}(self):
         self.start(
             Step(
@@ -185,11 +245,11 @@ class {{ class_name }}(PareStep):
     
 """
     )
-    request_entry_dict = pare_content(content)
+    request_entry_dict = prepare_content(content)
     data = {
         "class_name": class_name,
         "make_request_chain_style": make_request_chain_style,
-        "teststeps_chain_style": request_entry_dict
+        "request_entry_dict": request_entry_dict
     }
     # 渲染模板
     content = __TEMPLATE__.render(data)
@@ -238,7 +298,7 @@ class {{ class_name }}(BaseCase):
 def call_gen_py_testcase(open_file_name):
     '''
     调用生成测试用例方法
-    :param file_name:
+    :param file_name:需要生成的文件名
     :return:
     '''
     p = Path(open_file_name)

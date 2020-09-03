@@ -14,6 +14,7 @@ class Test_Study(PareStep):
         .verify(False)
     )
 
+    @pytest.mark.skip
     def test_gettoken(self):
         self.start(
             Step(
@@ -47,7 +48,8 @@ class Test_Study(PareStep):
         )
 
     @pytest.mark.parametrize('tagname, tagid',
-                             [('uf8i{0}'.format(x), '339{}'.format(x)) for x in range(2)])
+                             [('u01i{0}'.format(x), '3019{}'.format(x)) for x in range(4)])
+
     def test_create(self,tagname,tagid):
         self.test_gettoken()
         self.start(
@@ -72,6 +74,7 @@ class Test_Study(PareStep):
             )
         )
 
+    @pytest.mark.skip
     @pytest.mark.parametrize('tagname, tagid',
                              [('u34556i{0}'.format(x), '8655{}'.format(x)) for x in range(1)])
     def test_update(self,tagname,tagid):
@@ -97,6 +100,7 @@ class Test_Study(PareStep):
             )
         )
 
+    @pytest.mark.skip
     def test_delete(self,tagid):
         self.start(
             Step(
@@ -119,6 +123,7 @@ class Test_Study(PareStep):
             )
         )
 
+    @pytest.mark.skip
     def test_flow(self):
         tagname= "u9196i1"
         tagid= "95001"

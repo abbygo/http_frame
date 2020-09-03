@@ -6,12 +6,12 @@ import time
 import types
 
 from string import Template
-from typing import Union
+from typing import Union, Dict
 
 import yaml
 from loguru import logger
 
-from requests_wework.core.content import Content, PyContent
+from requests_wework.core.content import Content
 from requests_wework.core.exceptions import ValidationFailure
 from requests_wework.core.models import TestCase
 from requests_wework.core.parser import build_url
@@ -29,13 +29,15 @@ class BaseAction:
     # yaml_data(yaml中的数据)--》yaml 中的最外层key,value：request_key(dict_key),request_value（dict_value）,
     # -->yaml 第2层中的字典key request_entry_key(dict_key); request_entry_value((dict_value))
 
-    def __init__(self, content: Union[Content, PyContent]):
+    def __init__(self, content: Union[Content, Dict]):
         """
         1、得到需要的数据
         :param content: 获取数据的类
         """
-
-        self.yaml_data: dict = content.get_data()
+        if isinstance(content,Content):
+            self.yaml_data: dict = content.get_data()
+        else:
+            self.yaml_data: dict=content
 
         self.parse_content()
 
@@ -241,8 +243,11 @@ class BaseAction:
     def run_fun(self, request_key, testcase_obj: TestCase):
         """
         运行方法
-        :param request_key: 函数名
+        :param request_key: 函数名;eg:test_gettoken
         :param testcase_obj: 测试对象
+        eg:
+        TestCase包含2个属性(config,teststeps)
+
         :return:
         """
 

@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import sys
 import urllib.parse as urlparse
 from json import JSONDecodeError
@@ -11,7 +12,6 @@ from sentry_sdk import capture_exception
 from loguru import logger
 import yaml
 
-from requests_wework.core.parser import get_status_code
 from requests_wework.ExtFiles2Case.make import (
     gen_py_testcase_no_yaml,
     call_gen_py_testcase,
@@ -20,8 +20,21 @@ from requests_wework.ExtFiles2Case.utils import (
     convert_x_www_form_urlencoded_to_dict,
     convert_list_to_dict,
 )
+status_code_regexp = re.compile(r"\((\d+)\)")
 
-
+def get_status_code(str):
+    '''
+    获取状态码
+    :param str:
+    eg:
+    "    pm.response.to.have.status(200);\r",
+    :return:
+    '''
+    res_list=status_code_regexp.findall(str)
+    if res_list:
+        return res_list[0]
+    else:
+        return res_list
 def ensure_file_path(path: Text, file_extension: Text = "har") -> Text:
     """
 

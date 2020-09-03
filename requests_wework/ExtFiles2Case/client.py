@@ -5,8 +5,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-
-
 from requests_wework.ExtFiles2Case import main_ext_file2case, init_ext_file2case_parser
 
 
