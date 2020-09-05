@@ -19,6 +19,24 @@ from requests_wework.core.response import ResponseObject
 from requests_wework.ExtFiles2Case import utils
 
 
+def duration_run_time(fun):
+    """
+    持续运行时间
+    :param fun:
+    :return:
+    """
+
+    def wrapper(*args, **kargs):
+        start_time = time.time()
+        result = fun(*args, **kargs)
+        # 保留2位小数
+        duration_time = format(time.time() - start_time, ".2f")
+        logger.info(f"duration_run_time:{duration_time}s")
+        return result
+
+    return wrapper
+
+
 class BaseAction:
     # 依赖
     depends = []
@@ -34,10 +52,10 @@ class BaseAction:
         1、得到需要的数据
         :param content: 获取数据的类
         """
-        if isinstance(content,Content):
+        if isinstance(content, Content):
             self.yaml_data: dict = content.get_data()
         else:
-            self.yaml_data: dict=content
+            self.yaml_data: dict = content
 
         self.parse_content()
 
@@ -101,6 +119,7 @@ class BaseAction:
                             # 切割列表得到真实的方法名
                             request_method_name = request_entry_key[4:]
                             if self.local_variable.get(request_method_name):
+                                # 这句代码暂时不会执行，
                                 return self.local_variable[request_method_name].run()
                             else:
                                 for import_mod in self.depends:
@@ -109,33 +128,59 @@ class BaseAction:
                                         request_dict = self.parse_value(
                                             request_entry_value, testcase_obj
                                         )
-                                        # # 把int 类型的mobile 转换为str类型
-                                        # if request_dict.__contains__("json"):
-                                        #     if request_dict["json"].__contains__(
-                                        #             "mobile"
-                                        #     ):
-                                        #         request_dict["json"]["mobile"] = str(
-                                        #             request_dict["json"]["mobile"]
-                                        #         )
 
                                         # 这句代码实际就是调用是发送请求的地方
                                         return self.send(
                                             request_dict,
                                             import_mod,
                                             request_method_name,
-                                            testcase_obj
+                                            testcase_obj,
                                         )
 
-                cls_dict = {"__init__": __init__, "run": run}
-                # 动态创建class, 在回调函数中传入方法run和init,并没有调用类
-                tmp_class = types.new_class(
-                    "tmp_class", (), {}, lambda ns: ns.update(cls_dict)
-                )
-                # 把方法名作为key,类地址作为value存入字典--》eg:<class 'dict'>: {'get_token': <types.tmp_class object at 0x0552E388>}
-                # 实例化类
-                self.local_variable[request_key] = tmp_class(request_value, request_key)
 
-    def send(self, request_dict: dict, import_mod, request_method_name,testcase_obj: TestCase = None):
+                def init_tmp_class():
+                    cls_dict = {"__init__": __init__, "run": run}
+                    # 动态创建class, 在回调函数中传入方法run和init,并没有调用类
+                    tmp_class = types.new_class(
+                        "tmp_class", (), {}, lambda ns: ns.update(cls_dict)
+                    )
+                    # 把方法名作为key,类地址作为value存入字典--》eg:<class 'dict'>: {'get_token': <types.tmp_class object at 0x0552E388>}
+                    # 实例化类
+                    self.local_variable[request_key] = tmp_class(request_value, request_key)
+
+                init_tmp_class()
+
+    # 日志
+    def log_req_resp_details(self, url, method, request_dict, res):
+        err_msg = "\n{} DETAILED REQUEST & RESPONSE {}\n".format("*" * 32, "*" * 32)
+
+        # log request
+        err_msg += "====== request details ======\n"
+        err_msg += f"url: {url}\n"
+        err_msg += f"method: {method}\n"
+        headers = request_dict.pop("headers", {})
+        err_msg += f"headers: {headers}\n"
+        for k, v in request_dict.items():
+            v = utils.omit_long_data(v)
+            err_msg += f"{k}: {repr(v)}\n"
+
+        err_msg += "\n"
+
+        # log response
+        err_msg += "====== response details ======\n"
+        err_msg += f"status_code: {res.status_code}\n"
+        err_msg += f"headers: {res.headers}\n"
+        err_msg += f"body: {repr(res.text)}\n"
+        logger.error(err_msg)
+
+    @duration_run_time
+    def send(
+        self,
+        request_dict: dict,
+        import_mod,
+        request_method_name,
+        testcase_obj: TestCase = None,
+    ):
         """
         发送请求入口
         :param request_dict: 发送的数据
@@ -143,46 +188,22 @@ class BaseAction:
         :param request_method_name: 请求方法名(request)；requests.request;
         :return: 
         """
-        # todo
-        self.__start_at = time.time()
-        # meta_req_dict = request_dict.copy()
-
         encoding = request_dict.pop("encoding", "")
 
         validate = request_dict.pop("validate", "")
 
         extractors = request_dict.pop("extractors", {})
 
-        url = request_dict["url"]=build_url(testcase_obj.config.base_url, request_dict["url"])
+        url = request_dict["url"] = build_url(
+            testcase_obj.config.base_url, request_dict["url"]
+        )
         # 在配置文件中读取是否需要配置证书
-        verify= testcase_obj.config.verify
+        verify = testcase_obj.config.verify
         # 发送请求的地方，verify=False表示不验证证书
         # getattr(import_mod, request_method_name)(**request_dict)等价于 import_mod.request_method_name(**request_dict)
         res = getattr(import_mod, request_method_name)(verify=verify, **request_dict)
         resp_obj = ResponseObject(res)
         method = request_dict.pop("method")
-        # 日志
-        def log_req_resp_details():
-            err_msg = "\n{} DETAILED REQUEST & RESPONSE {}\n".format("*" * 32, "*" * 32)
-
-            # log request
-            err_msg += "====== request details ======\n"
-            err_msg += f"url: {url}\n"
-            err_msg += f"method: {method}\n"
-            headers = request_dict.pop("headers", {})
-            err_msg += f"headers: {headers}\n"
-            for k, v in request_dict.items():
-                v = utils.omit_long_data(v)
-                err_msg += f"{k}: {repr(v)}\n"
-
-            err_msg += "\n"
-
-            # log response
-            err_msg += "====== response details ======\n"
-            err_msg += f"status_code: {res.status_code}\n"
-            err_msg += f"headers: {res.headers}\n"
-            err_msg += f"body: {repr(res.text)}\n"
-            logger.error(err_msg)
 
         # extract
         # 提取内容，并存入变量中
@@ -197,28 +218,13 @@ class BaseAction:
             # log_req_resp_details()
         except ValidationFailure:
             session_success = False
-            log_req_resp_details()
 
-            self.__duration = time.time() - self.__start_at
+            self.log_req_resp_details(url, method, request_dict, res)
             raise
-        finally:
-            pass
-
-            # self.success = session_success
-            # step_data.success = session_success
-            #
-            # if hasattr(self.__session, "data"):
-            #     # httprunner.client.HttpSession, not locust.clients.HttpSession
-            #     # save request & response meta data
-            #     self.__session.data.success = session_success
-            #     self.__session.data.validators = resp_obj.validation_results
-            #
-            #     # save step data
-            #     step_data.data = self.__session.data
 
     def parse_value(self, content, testcase_obj: TestCase = None):
         """
-        解析函数为可执行的函数？？
+        解析函数为可执行的函数
         :param content:
         :param testcase_obj: 测试对象
         :return:
@@ -235,8 +241,7 @@ class BaseAction:
 
                 raw = raw.replace(f"$({function})", repr(self.local_variable[function]))
             else:
-                pass
-        #         todo
+                logger.error(f"{function}not in {self.local_variable.keys()}")
 
         return yaml.safe_load(raw)
 

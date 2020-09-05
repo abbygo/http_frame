@@ -13,34 +13,56 @@ from requests_wework.action.api_action import api_action
 from requests_wework.core.models import TStep, VariablesMapping, TestCase, TConfig
 from requests_wework.core.testcase import Step, Config
 
+from functools import wraps
+
+
+def print_log(fun):
+    '''
+    打印日志
+    :param fun: 函数
+    :return:
+    '''
+
+    @wraps(fun)
+    def wrapper(*args, **kargs):
+        case_id = str(uuid.uuid4())
+        logger.info(
+            f"Start to run testcase, TestCase ID: {case_id}"
+        )
+
+        result = fun(*args, **kargs)
+        logger.info(
+            f"End of use testcase run, TestCase ID: {case_id}"
+        )
+        return result
+
+    return wrapper
+
 
 class PareStep(object):
     config: Config
     __case_id: Text = ""
     __session_variables: VariablesMapping = {}
 
-    # case_name_list = []
-
-    def __init_tests__(self, step: Step) -> NoReturn:
+    def __init_data_structure(self, step: Step) -> NoReturn:
+        '''
+        初始化数据的结构体
+        :param step:
+        :return:
+        '''
         # 获取config中的数据
         self.__config = self.config.perform()
         self.step = step
 
         self.data_entries: Dict = {"depend": ["requests"]}
         self.testcase_name = ''
-        # for step in self.teststeps:
+
         self.__teststeps = {}
         self.__case_id = self.__case_id or str(uuid.uuid4())
 
         config_variables = self.__config.variables
 
         config_variables.update(self.__session_variables)
-        # self.__config.name = parse_data(
-        #     self.__config.name, config_variables, self.__project_meta.functions
-        # )
-        logger.info(
-            f"Start to run testcase: {self.__config.name}, TestCase ID: {self.__case_id}"
-        )
 
         self.init_data()
 
@@ -76,7 +98,7 @@ class PareStep(object):
         '''
         tstep: TStep = self.step.perform()
         # 获取测试用例的名称；eg:test_gettoken
-        name = inspect.stack()[3].function
+        name = inspect.stack()[4].function
 
         if name.startswith("test_"):
 
@@ -139,35 +161,34 @@ class PareStep(object):
         self.__session_variables = variables
         return self
 
-    def load_project_meta(self, tconfig: TConfig):
-        # 获取正在执行的用例名称
-        filename = inspect.stack()[2].filename
-        # C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\test_tag_newpy.py
-        p = Path(filename)
-        # 查找env文件
-        env_path = ''
+    def find_env_file(self, path_obj, i=0):
+        '''
+        查找env文件
+        :param path_obj: Path的实例
+        :param i: i 表示第几级父类
+        :return:
+        '''
 
-        def find_env_file(i=0):
-            # 找到了文件这个变量变为TRue
-            find_file = False
-            # 循环迭代文件夹，i 表示第级父类
-            for path in p.parents[i].iterdir():
-                if Path.is_file(path):
-                    if str(path).endswith('env.yml'):
-                        find_file = True
-                        nonlocal env_path
-                        env_path = path
-                        return env_path
-            if find_file == False:
-                i += 1
-                # 最多找5层目录
-                if i <= 5:
-                    find_env_file(i)
-                else:
-                    logger.error('not found env.yml')
-                    sys.exit(1)
+        # 找到了文件这个变量变为TRue
+        find_file = False
+        # 循环迭代文件夹，i 表示第级父类
+        for path in path_obj.parents[i].iterdir():
+            if Path.is_file(path):
+                if str(path).endswith('env.yml'):
+                    find_file = True
 
-        find_env_file()
+                    env_path = path
+                    return env_path
+        if find_file == False:
+            i += 1
+            # 最多找5层目录
+            if i <= 5:
+                return self.find_env_file(path_obj, i)
+            else:
+                logger.error('Maximum number of iterations exceeded 5,not found env.yml')
+                sys.exit(1)
+
+    def read_env_file(self, env_path, tconfig: TConfig):
         with open(env_path, encoding='utf-8') as f:
 
             '''
@@ -194,6 +215,15 @@ class PareStep(object):
                 capture_exception(ex)
                 return []
 
+    def load_project_meta(self, tconfig: TConfig):
+        # 获取正在执行的用例名称
+        filename = inspect.stack()[2].filename
+        # C:\Users\lnz\PycharmProjects\http_homework\requests_wework\testcases\test_tag_newpy.py
+        p = Path(filename)
+        env_path = self.find_env_file(p)
+        self.read_env_file(env_path, tconfig)
+
+    @print_log
     def start(self, step: Step):
         '''
         入口
@@ -208,14 +238,15 @@ class PareStep(object):
         '''
         try:
 
-            self.__init_tests__(step)
+            self.__init_data_structure(step)
             # 加载env.yaml中的数据
             self.load_project_meta(self.__config)
             # 组装测试对象
             testcase_obj = TestCase(config=self.__config, teststeps=self.data_entries)
             # 实例化api类
             api_obj = api_action(self.data_entries)
-            #调用运行方法
+
+            # 调用运行方法
             api_obj.run_fun(self.testcase_name, testcase_obj)
 
 

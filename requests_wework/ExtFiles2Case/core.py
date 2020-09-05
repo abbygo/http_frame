@@ -14,13 +14,15 @@ import yaml
 
 from requests_wework.ExtFiles2Case.make import (
     gen_py_testcase_no_yaml,
-    call_gen_py_testcase,
-)
+    call_gen_python_testcase_by_yaml_or_json,
+    print_gen_testcase_log_and_formart)
 from requests_wework.ExtFiles2Case.utils import (
     convert_x_www_form_urlencoded_to_dict,
     convert_list_to_dict,
 )
+
 status_code_regexp = re.compile(r"\((\d+)\)")
+
 
 def get_status_code(str):
     '''
@@ -30,11 +32,13 @@ def get_status_code(str):
     "    pm.response.to.have.status(200);\r",
     :return:
     '''
-    res_list=status_code_regexp.findall(str)
+    res_list = status_code_regexp.findall(str)
     if res_list:
         return res_list[0]
     else:
         return res_list
+
+
 def ensure_file_path(path: Text, file_extension: Text = "har") -> Text:
     """
 
@@ -281,7 +285,7 @@ class PostManParser(object):
 
 
         """
-        logger.info(f"Start to generate testcase from {self.postman_file_path}")
+        # logger.info(f"Start to generate testcase from {self.postman_file_path}")
         try:
             content = self.read_content()
 
@@ -290,7 +294,7 @@ class PostManParser(object):
             p = Path(self.postman_file_path)
             class_name = f"Test{p.stem}"
             file_name = f"test_{p.stem}.py"
-            full_path_name=Path.joinpath(self.output_dir,file_name)
+            full_path_name = Path.joinpath(self.output_dir, file_name)
             gen_py_testcase_no_yaml(content_dict, full_path_name, class_name)
 
         except Exception as ex:
@@ -304,7 +308,6 @@ class HarParser(object):
         self.filter_str = filter_str
         self.exclude_str = exclude_str or ""
         self.output_path_contain_stem, self.output_dir = make_output_dir(self.har_file_path)
-
 
     def make_request_method(self, teststep_dict, request_json):
         """
@@ -543,26 +546,22 @@ class HarParser(object):
         :param file_type: 文件类型
         :return: yaml或json文件
         """
-        logger.info(f"Start to generate testcase from {self.har_file_path}")
         try:
             content_dict = self._prepare_data_by_har(self.har_file_path)
         except Exception as ex:
             capture_exception(ex)
             raise
 
-
-
         if file_type == "JSON":
             output_testcase_file = f"{self.output_path_contain_stem}.json"
             dump_json(content_dict, rf"{output_testcase_file}")
-            logger.info(f"generated testcase: {output_testcase_file}")
-            call_gen_py_testcase(output_testcase_file)
+
+            call_gen_python_testcase_by_yaml_or_json(output_testcase_file)
         elif file_type == "YAML":
             output_testcase_file = f"{self.output_path_contain_stem}.yaml"
             dump_yaml(content_dict, rf"{output_testcase_file}")
-            logger.info(f"generated testcase: {output_testcase_file}")
 
-            call_gen_py_testcase(output_testcase_file)
+            call_gen_python_testcase_by_yaml_or_json(output_testcase_file)
         else:
             # 调用生成python文件 的方法
 
@@ -574,13 +573,12 @@ class HarParser(object):
         :param file_type: 文件类型
 
         """
-        logger.info(f"Start to generate testcase from {self.har_file_path}")
         try:
             content_dict = self._prepare_data_by_har(self.har_file_path)
             p = Path(self.har_file_path)
             class_name = f"Test{p.stem}"
             file_name = f"test_{p.stem}.py"
-            full_path_name=Path.joinpath(self.output_dir,file_name)
+            full_path_name = Path.joinpath(self.output_dir, file_name)
             gen_py_testcase_no_yaml(content_dict, full_path_name, class_name)
 
         except Exception as ex:
@@ -588,25 +586,22 @@ class HarParser(object):
             raise
 
 
+@print_gen_testcase_log_and_formart('JSON')
 def dump_json(testcase, json_file):
     """ dump HAR entries to json testcase
     """
-    logger.info("dump testcase to JSON format.")
-
     with open(json_file, "w", encoding="utf-8") as outfile:
         my_json_str = json.dumps(testcase, ensure_ascii=False, indent=4)
         if isinstance(my_json_str, bytes):
             my_json_str = my_json_str.decode("utf-8")
 
         outfile.write(my_json_str)
+    return json_file
 
-    # logger.info("Generate JSON testcase successfully: {}".format(json_file))
-
-
+@print_gen_testcase_log_and_formart('YAML')
 def dump_yaml(testcase, yaml_file):
     """ dump HAR entries to yaml testcase
     """
-    logger.info("dump testcase to YAML format.")
 
     with open(yaml_file, "w", encoding="utf-8") as outfile:
         yaml.safe_dump(
@@ -617,7 +612,10 @@ def dump_yaml(testcase, yaml_file):
             indent=4,
             sort_keys=False,
         )
-def make_output_dir(file_path:Text):
+    return yaml_file
+
+
+def make_output_dir(file_path: Text):
     p = Path(rf"{file_path}")
 
     # 构造要生成的文件绝对路径
